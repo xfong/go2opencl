@@ -144,6 +144,15 @@ var errorMap = map[C.cl_int]error{
 	C.CL_INVALID_OPERATION:                         ErrInvalidOperation,
 	C.CL_INVALID_BUFFER_SIZE:                       ErrInvalidBufferSize,
 	C.CL_INVALID_GLOBAL_WORK_SIZE:                  ErrInvalidGlobalWorkSize,
+        C.CL_COMPILE_PROGRAM_FAILURE:			ErrCompileProgramFailure,
+        C.CL_DEVICE_PARTITION_FAILED:			ErrDevicePartitionFailed,
+        C.CL_INVALID_COMPILER_OPTIONS:			ErrInvalidCompilerOptions,
+        C.CL_INVALID_DEVICE_PARTITION_COUNT:		ErrInvalidDevicePartitionCount,
+        C.CL_INVALID_IMAGE_DESCRIPTOR:			ErrInvalidImageDescriptor,
+        C.CL_INVALID_LINKER_OPTIONS:			ErrInvalidLinkerOptions,
+        C.CL_KERNEL_ARG_INFO_NOT_AVAILABLE:		ErrKernelArgInfoNotAvailable,
+        C.CL_LINK_PROGRAM_FAILURE:			ErrLinkProgramFailure,
+        C.CL_LINKER_NOT_AVAILABLE:			ErrLinkerNotAvailable,
 }
 
 func toError(code C.cl_int) error {
@@ -227,7 +236,11 @@ type Dim3 struct {
 }
 
 var gl_sharing_ext	bool
+var dx9_sharing_ext	bool
 var d3d10_sharing_ext	bool
+var d3d11_sharing_ext	bool
 
 var getGlCommandType func(C.cl_command_type) (bool, CommandType)
+var getDX9CommandType func(C.cl_command_type) (bool, CommandType)
 var getD3D10CommandType func(C.cl_command_type) (bool, CommandType)
+var getD3D11CommandType func(C.cl_command_type) (bool, CommandType)

@@ -2,6 +2,75 @@ package cl
 
 /*
 #include "./opencl.h"
+
+
+static cl_device_partition_property * partitionDeviceEqually(unsigned int n) {
+	cl_device_partition_property *properties = malloc(n * sizeof(cl_device_partition_property));
+	properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+	properties[1] = (cl_device_partition_property)(n);
+	properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+	return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByCounts(unsigned int *n, unsigned int num_counts) {
+	cl_device_partition_property *properties = malloc((num_counts + 3) * sizeof(cl_device_partition_property));
+	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
+	int idx;
+	for (idx = 0; idx < num_counts; idx++) {
+		properties[idx+1] = (cl_device_partition_property)(*(n+idx));
+	}
+	properties[num_counts+1] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+	properties[num_counts+2] = 0;
+	return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByNuma() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_NUMA);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByL4Cache() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByL3Cache() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByL2Cache() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByL1Cache() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
+
+static cl_device_partition_property * partitionDeviceByNextPartitionable() {
+        cl_device_partition_property *properties = malloc(3 * sizeof(cl_device_partition_property));
+        properties[0] = CL_DEVICE_PARTITION_EQUALLY;
+        properties[1] = (cl_device_partition_property)(CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE);
+        properties[2] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+        return properties;
+}
 */
 import "C"
 
@@ -20,6 +89,7 @@ const (
 	DeviceTypeCPU         DeviceType = C.CL_DEVICE_TYPE_CPU
 	DeviceTypeGPU         DeviceType = C.CL_DEVICE_TYPE_GPU
 	DeviceTypeAccelerator DeviceType = C.CL_DEVICE_TYPE_ACCELERATOR
+	DeviceTypeCustom      DeviceType = C.CL_DEVICE_TYPE_CUSTOM
 	DeviceTypeDefault     DeviceType = C.CL_DEVICE_TYPE_DEFAULT
 	DeviceTypeAll         DeviceType = C.CL_DEVICE_TYPE_ALL
 )
@@ -128,7 +198,7 @@ func (d *Device) nullableId() C.cl_device_id {
 func (d *Device) GetInfoString(param C.cl_device_info, panicOnError bool) (string, error) {
 	var strC [1024]C.char
 	var strN C.size_t
-	if err := C.clGetDeviceInfo(d.id, param, 1024, unsafe.Pointer(&strC), &strN); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), param, 1024, unsafe.Pointer(&strC), &strN); err != C.CL_SUCCESS {
 		if panicOnError {
 			panic("Should never fail")
 		}
@@ -142,7 +212,7 @@ func (d *Device) GetInfoString(param C.cl_device_info, panicOnError bool) (strin
 
 func (d *Device) getInfoUint(param C.cl_device_info, panicOnError bool) (uint, error) {
 	var val C.cl_uint
-	if err := C.clGetDeviceInfo(d.id, param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
 		if panicOnError {
 			panic("Should never fail")
 		}
@@ -153,7 +223,7 @@ func (d *Device) getInfoUint(param C.cl_device_info, panicOnError bool) (uint, e
 
 func (d *Device) getInfoSize(param C.cl_device_info, panicOnError bool) (int, error) {
 	var val C.size_t
-	if err := C.clGetDeviceInfo(d.id, param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
 		if panicOnError {
 			panic("Should never fail")
 		}
@@ -164,7 +234,7 @@ func (d *Device) getInfoSize(param C.cl_device_info, panicOnError bool) (int, er
 
 func (d *Device) getInfoUlong(param C.cl_device_info, panicOnError bool) (int64, error) {
 	var val C.cl_ulong
-	if err := C.clGetDeviceInfo(d.id, param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
 		if panicOnError {
 			panic("Should never fail")
 		}
@@ -175,7 +245,7 @@ func (d *Device) getInfoUlong(param C.cl_device_info, panicOnError bool) (int64,
 
 func (d *Device) getInfoBool(param C.cl_device_info, panicOnError bool) (bool, error) {
 	var val C.cl_bool
-	if err := C.clGetDeviceInfo(d.id, param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), param, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
 		if panicOnError {
 			panic("Should never fail")
 		}
@@ -191,7 +261,7 @@ func (d *Device) Name() string {
 
 func (d *Device) Platform() *Platform {
 	var devicePlatform C.cl_platform_id
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_PLATFORM, C.size_t(unsafe.Sizeof(devicePlatform)), unsafe.Pointer(&devicePlatform), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_PLATFORM, C.size_t(unsafe.Sizeof(devicePlatform)), unsafe.Pointer(&devicePlatform), nil); err != C.CL_SUCCESS {
 		panic("Failed to get device platform")
 	}
 	return &Platform{id: devicePlatform}
@@ -440,7 +510,7 @@ func (d *Device) Type() DeviceType {
 // Describes double precision floating-point capability of the OpenCL device
 func (d *Device) DoubleFPConfig() FPConfig {
 	var fpConfig C.cl_device_fp_config
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_DOUBLE_FP_CONFIG, C.size_t(unsafe.Sizeof(fpConfig)), unsafe.Pointer(&fpConfig), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_DOUBLE_FP_CONFIG, C.size_t(unsafe.Sizeof(fpConfig)), unsafe.Pointer(&fpConfig), nil); err != C.CL_SUCCESS {
 		panic("Failed to get double FP config")
 	}
 	return FPConfig(fpConfig)
@@ -449,7 +519,7 @@ func (d *Device) DoubleFPConfig() FPConfig {
 // Describes single precision floating-point capability of the OpenCL device
 func (d *Device) SingleFPConfig() FPConfig {
 	var fpConfig C.cl_device_fp_config
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_SINGLE_FP_CONFIG, C.size_t(unsafe.Sizeof(fpConfig)), unsafe.Pointer(&fpConfig), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_SINGLE_FP_CONFIG, C.size_t(unsafe.Sizeof(fpConfig)), unsafe.Pointer(&fpConfig), nil); err != C.CL_SUCCESS {
 		panic("Failed to get single FP config")
 	}
 	return FPConfig(fpConfig)
@@ -487,7 +557,7 @@ func (d *Device) ExecutionCapabilities() ExecCapability {
 
 func (d *Device) GlobalMemCacheType() MemCacheType {
 	var memType C.cl_device_mem_cache_type
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, C.size_t(unsafe.Sizeof(memType)), unsafe.Pointer(&memType), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, C.size_t(unsafe.Sizeof(memType)), unsafe.Pointer(&memType), nil); err != C.CL_SUCCESS {
 		return MemCacheType(C.CL_NONE)
 	}
 	return MemCacheType(memType)
@@ -501,7 +571,7 @@ func (d *Device) GlobalMemCacheType() MemCacheType {
 func (d *Device) MaxWorkItemSizes() []int {
 	dims := d.MaxWorkItemDimensions()
 	sizes := make([]C.size_t, dims)
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_MAX_WORK_ITEM_SIZES, C.size_t(int(unsafe.Sizeof(sizes[0]))*dims), unsafe.Pointer(&sizes[0]), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_MAX_WORK_ITEM_SIZES, C.size_t(int(unsafe.Sizeof(sizes[0]))*dims), unsafe.Pointer(&sizes[0]), nil); err != C.CL_SUCCESS {
 		panic("Failed to get max work item sizes")
 	}
 	intSizes := make([]int, dims)
@@ -625,10 +695,180 @@ func (d *Device) PreferredVectorWidthHalf() int {
 
 func (d *Device) QueueProperties() CommandQueueProperty {
 	var val C.cl_command_queue_properties
-	if err := C.clGetDeviceInfo(d.id, C.CL_DEVICE_QUEUE_PROPERTIES, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+	if err := C.clGetDeviceInfo(d.nullableId(), C.CL_DEVICE_QUEUE_PROPERTIES, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
 		panic("Should never fail")
 		return 0
 	}
 	return CommandQueueProperty(val)
+}
+
+func (d *Device) PartitionDeviceEqually(n int) ([]*Device, error) {
+	var deviceList []C.cl_device_id
+	var deviceCount C.cl_uint
+	defer C.free(unsafe.Pointer(&deviceList))
+	defer C.free(unsafe.Pointer(&deviceCount))
+	err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceEqually((C.uint)(n)), 1, &deviceList[0], &deviceCount)
+	if toError(err) != nil {
+		return nil, toError(err)
+	}
+	val := make([]*Device, int(deviceCount))
+	for idx := range val {
+		val[idx].id = deviceList[idx]
+	}
+	return val, nil
+}
+
+func (d *Device) PartitionDeviceByCounts(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByCounts(&Counts[0], (C.uint)(len(n))), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByNumaDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+	for ii, nn := range n {
+		Counts[ii] = (C.uint)(nn)
+	}
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByNuma(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByL4CacheDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByL4Cache(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByL3CacheDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByL3Cache(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByL2CacheDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByL2Cache(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByL1CacheDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByL1Cache(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
+}
+
+func (d *Device) PartitionDeviceByNextPartitionableDomain(n []int) ([]*Device, error) {
+        var deviceList []C.cl_device_id
+        var deviceCount C.cl_uint
+        defer C.free(unsafe.Pointer(&deviceList))
+        defer C.free(unsafe.Pointer(&deviceCount))
+
+        Counts := make([]C.uint, len(n))
+        defer C.free(unsafe.Pointer(&Counts))
+        for ii, nn := range n {
+                Counts[ii] = (C.uint)(nn)
+        }
+        err := C.clCreateSubDevices(d.nullableId(), C.partitionDeviceByNextPartitionable(), 1, &deviceList[0], &deviceCount)
+        if toError(err) != nil {
+                return nil, toError(err)
+        }
+        val := make([]*Device, int(deviceCount))
+        for idx := range val {
+                val[idx].id = deviceList[idx]
+        }
+        return val, nil
 }
 

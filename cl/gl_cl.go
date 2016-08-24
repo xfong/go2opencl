@@ -11,15 +11,15 @@ typedef CL_API_ENTRY cl_event (CL_API_CALL *clCreateEventFromGLsyncKHR_fn)(
     cl_context context,
     cl_GLsync  gl_sync,
     cl_int *   err);
-static cl_int		(*clGetGLContextInfo) (const cl_context_properties *, cl_gl_context_info, size_t, void *, size_t *);
+static cl_int	(*clGetGLContextInfo) (const cl_context_properties *, cl_gl_context_info, size_t, void *, size_t *);
 static cl_event	(*clCreateEventFromGLsync) (cl_context, cl_GLsync, cl_int *);
 
-static void SetupGLSharing() {
+static void SetupGLSharing(cl_platform_id platform) {
 	clGetGLContextInfoKHR_fn tmpPtr0 = NULL;
-	tmpPtr0 = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
+	tmpPtr0 = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetGLContextInfoKHR");
 	clGetGLContextInfo = tmpPtr0;
 	clCreateEventFromGLsyncKHR_fn tmpPtr1 = NULL;
-	tmpPtr1 = (clCreateEventFromGLsyncKHR_fn)clGetExtensionFunctionAddress("clCreateEventFromGLsyncKHR");
+	tmpPtr1 = (clCreateEventFromGLsyncKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateEventFromGLsyncKHR");
 	clCreateEventFromGLsync = tmpPtr1;
 }
 
@@ -64,9 +64,13 @@ const (
 type GLTargets	int
 
 const (
+	GlTexture1D		GLTargets = C.GL_TEXTURE_1D
 	GlTexture2D		GLTargets = C.GL_TEXTURE_2D
+	GlTexture1DArray	GLTargets = C.GL_TEXTURE_1D_ARRAY
+	GlTexture2DArray	GLTargets = C.GL_TEXTURE_2D_ARRAY
 	GlTextureRect		GLTargets = C.GL_TEXTURE_RECTANGLE
 	GlTexture3D		GLTargets = C.GL_TEXTURE_3D
+	GlTextureBuffer		GLTargets = C.GL_TEXTURE_BUFFER
 	GlTextureCubeMapPosX	GLTargets = C.GL_TEXTURE_CUBE_MAP_POSITIVE_X
 	GlTextureCubeMapNegX	GLTargets = C.GL_TEXTURE_CUBE_MAP_NEGATIVE_X
 	GlTextureCubeMapPosY	GLTargets = C.GL_TEXTURE_CUBE_MAP_POSITIVE_Y
@@ -79,8 +83,12 @@ type GLObjectTypes int
 
 const (
 	GlObjectBuffer		GLObjectTypes = C.CL_GL_OBJECT_BUFFER
+	GlObjectTextureBuffer	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE_BUFFER
+	GlObjectTexture1D	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE1D
 	GlObjectTexture2D	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE2D
 	GlObjectTexture3D	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE3D
+	GlObjectTexture1DArray	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE1D_ARRAY
+	GlObjectTexture2DArray	GLObjectTypes = C.CL_GL_OBJECT_TEXTURE2D_ARRAY
 	GlObjectRenderBuffer	GLObjectTypes = C.CL_GL_OBJECT_RENDERBUFFER
 )
 
@@ -100,8 +108,6 @@ const (
 
 //////////////// Basic Functions ////////////////
 func init() {
-	C.SetupGLSharing()
-
 	errorMap[C.CL_INVALID_GL_OBJECT] = ErrInvalidGlObject
 	errorMap[C.CL_INVALID_MIP_LEVEL] = ErrInvalidMipLevel
 
@@ -177,6 +183,10 @@ func GetAllDevicesInGlContext(go_ctx_properties []ContextPropertiesId) ([]*Devic
 }
 
 //////////////// Abstract Functions ////////////////
+func (p *Platform) SetupGLSharing() {
+	C.SetupGLSharing(p.id)
+}
+
 func (flag MemFlag) GlBufferCreateFlag() C.cl_mem_flags {
 	switch flag {
 	default:
@@ -208,9 +218,9 @@ func (ctx *Context) CreateFromGlBuffer(flag MemFlag, GlBufferObject GLUint) (*Me
 	return GlBufferObj, nil
 }
 
-func (ctx *Context) CreateFromGlTexture2D(flag MemFlag, GlBufferObject GLUint, targ GLTargets, miplvl GLInt, texture GLUint) (*MemObject, error) {
+func (ctx *Context) CreateFromGlTexture(flag MemFlag, GlBufferObject GLUint, targ GLTargets, miplvl GLInt, texture GLUint) (*MemObject, error) {
         var err C.cl_int
-        memobj := C.clCreateFromGLTexture3D(ctx.clContext, flag.GlBufferCreateFlag(), GlTargetToCl(targ), (C.cl_GLint)(miplvl), (C.cl_GLuint)(texture), &err)
+        memobj := C.clCreateFromGLTexture(ctx.clContext, flag.GlBufferCreateFlag(), GlTargetToCl(targ), (C.cl_GLint)(miplvl), (C.cl_GLuint)(texture), &err)
 
         if toError(err) != nil {
                 return nil, toError(err)
@@ -219,23 +229,6 @@ func (ctx *Context) CreateFromGlTexture2D(flag MemFlag, GlBufferObject GLUint, t
         bufSize, sizeErr := GlBufferObj.GetSize()
         if sizeErr != nil {
                 fmt.Printf("Unable to get buffer size in CreateFromGlTexture2D \n")
-                return nil, sizeErr
-        }
-        GlBufferObj.size = bufSize
-        return GlBufferObj, nil
-}
-
-func (ctx *Context) CreateFromGlTexture3D(flag MemFlag, GlBufferObject GLUint, miplvl GLInt, texture GLUint) (*MemObject, error) {
-        var err C.cl_int
-        memobj := C.clCreateFromGLTexture3D(ctx.clContext, flag.GlBufferCreateFlag(), GlTargetToCl(GlTexture3D), (C.cl_GLint)(miplvl), (C.cl_GLuint)(texture), &err)
-
-        if toError(err) != nil {
-                return nil, toError(GlErrorCodeToCl(int(err)))
-        }
-        GlBufferObj := &MemObject{clMem: memobj, size: 0}
-        bufSize, sizeErr := GlBufferObj.GetSize()
-        if sizeErr != nil {
-                fmt.Printf("Unable to get buffer size in CreateFromGlTexture3D \n")
                 return nil, sizeErr
         }
         GlBufferObj.size = bufSize

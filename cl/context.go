@@ -48,6 +48,7 @@ type ContextPropertiesId	int
 
 const (
 	ContextPlatform		ContextPropertiesId = C.CL_CONTEXT_PLATFORM
+	ContextInteropUserSync	ContextPropertiesId = C.CL_CONTEXT_INTEROP_USER_SYNC
 )
 
 ////////////////// Abstract Types ////////////////

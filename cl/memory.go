@@ -77,12 +77,15 @@ func (ct MemCacheType) String() string {
 type MemFlag int
 
 const (
-	MemReadWrite    MemFlag = C.CL_MEM_READ_WRITE
-	MemWriteOnly    MemFlag = C.CL_MEM_WRITE_ONLY
-	MemReadOnly     MemFlag = C.CL_MEM_READ_ONLY
-	MemUseHostPtr   MemFlag = C.CL_MEM_USE_HOST_PTR
-	MemAllocHostPtr MemFlag = C.CL_MEM_ALLOC_HOST_PTR
-	MemCopyHostPtr  MemFlag = C.CL_MEM_COPY_HOST_PTR
+	MemReadWrite			MemFlag = C.CL_MEM_READ_WRITE
+	MemWriteOnly			MemFlag = C.CL_MEM_WRITE_ONLY
+	MemReadOnly			MemFlag = C.CL_MEM_READ_ONLY
+	MemUseHostPtr			MemFlag = C.CL_MEM_USE_HOST_PTR
+	MemAllocHostPtr			MemFlag = C.CL_MEM_ALLOC_HOST_PTR
+	MemCopyHostPtr			MemFlag = C.CL_MEM_COPY_HOST_PTR
+        MemHostNoAccess			MemFlag = C.CL_MEM_HOST_NO_ACCESS
+        MemHostReadOnly			MemFlag = C.CL_MEM_HOST_READ_ONLY
+        MemHostWriteOnly		MemFlag = C.CL_MEM_HOST_WRITE_ONLY
 )
 
 type MemObjectType int
@@ -97,6 +100,13 @@ const (
 	// This flag specifies that the region being mapped in the memory object is being mapped for reading.
 	MapFlagRead                  MapFlag = C.CL_MAP_READ
 	MapFlagWrite                 MapFlag = C.CL_MAP_WRITE
+        // This flag specifies that the region being mapped in the memory object is being mapped for writing.
+        //
+        // The contents of the region being mapped are to be discarded. This is typically the case when the
+        // region being mapped is overwritten by the host. This flag allows the implementation to no longer
+        // guarantee that the pointer returned by clEnqueueMapBuffer or clEnqueueMapImage contains the
+        // latest bits in the region being mapped which can be a significant performance enhancement.
+        MapFlagWriteInvalidateRegion	MapFlag = C.CL_MAP_WRITE_INVALIDATE_REGION
 )
 
 func (mf MapFlag) toCl() C.cl_map_flags {
@@ -489,5 +499,37 @@ func (mobj *MemObject) CreateSubBuffer(flags MemFlag, origin, bSize int) (*MemOb
                 return nil, ErrUnknown
         }
         return newMemObject(clBuffer, bSize), nil
+}
+
+func (q *CommandQueue) EnqueueFillBuffer(buffer *MemObject, pattern unsafe.Pointer, patternSize, offset, size int, eventWaitList []*Event) (*Event, error) {
+	var event C.cl_event
+	err := toError(C.clEnqueueFillBuffer(q.clQueue, buffer.clMem, pattern, C.size_t(patternSize), C.size_t(offset), C.size_t(size), C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event))
+	return newEvent(event), err
+}
+
+// Enqueue a command to migrate memory objects into host
+func (q *CommandQueue) EnqueueMigrateMemObjectsToHost(memObjs []*MemObject, eventWaitList []*Event) (*Event, error) {
+	ObjCount := len(memObjs)
+	mem_obj_list := make([]C.cl_mem, ObjCount)
+	defer C.free(unsafe.Pointer(&mem_obj_list))
+	for idx, obj := range memObjs {
+		mem_obj_list[idx] = obj.clMem
+	}
+	var event C.cl_event
+	err := C.clEnqueueMigrateMemObjects(q.clQueue, C.cl_uint(ObjCount), &mem_obj_list[0], C.CL_MIGRATE_MEM_OBJECT_HOST, C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event)
+	return newEvent(event), toError(err)
+}
+
+// Enqueue a command to migrate memory objects into a command queue without their content
+func (q *CommandQueue) EnqueueMigrateMemObjectsIntoQueue(memObjs []*MemObject, eventWaitList []*Event) (*Event, error) {
+        ObjCount := len(memObjs)
+        mem_obj_list := make([]C.cl_mem, ObjCount)
+        defer C.free(unsafe.Pointer(&mem_obj_list))
+        for idx, obj := range memObjs {
+                mem_obj_list[idx] = obj.clMem
+        }
+        var event C.cl_event
+	err := C.clEnqueueMigrateMemObjects(q.clQueue, C.cl_uint(ObjCount), &mem_obj_list[0], C.CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED, C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event)
+        return newEvent(event), toError(err)
 }
 

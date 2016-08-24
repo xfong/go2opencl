@@ -7,6 +7,7 @@ import "C"
 
 import (
 	"fmt"
+	"image"
 	"unsafe"
 )
 
@@ -17,29 +18,33 @@ const maxImageFormats = 256
 type ChannelOrder int
 
 const (
-	ChannelOrderR         ChannelOrder = C.CL_R
-	ChannelOrderA         ChannelOrder = C.CL_A
-	ChannelOrderRG        ChannelOrder = C.CL_RG
-	ChannelOrderRA        ChannelOrder = C.CL_RA
-	ChannelOrderRGB       ChannelOrder = C.CL_RGB
-	ChannelOrderRGBA      ChannelOrder = C.CL_RGBA
-	ChannelOrderBGRA      ChannelOrder = C.CL_BGRA
-	ChannelOrderARGB      ChannelOrder = C.CL_ARGB
-	ChannelOrderIntensity ChannelOrder = C.CL_INTENSITY
-	ChannelOrderLuminance ChannelOrder = C.CL_LUMINANCE
+	ChannelOrderR			ChannelOrder = C.CL_R
+	ChannelOrderA			ChannelOrder = C.CL_A
+	ChannelOrderRG			ChannelOrder = C.CL_RG
+	ChannelOrderRA			ChannelOrder = C.CL_RA
+	ChannelOrderRGB			ChannelOrder = C.CL_RGB
+	ChannelOrderRGBA		ChannelOrder = C.CL_RGBA
+	ChannelOrderBGRA		ChannelOrder = C.CL_BGRA
+	ChannelOrderARGB		ChannelOrder = C.CL_ARGB
+	ChannelOrderIntensity		ChannelOrder = C.CL_INTENSITY
+	ChannelOrderLuminance		ChannelOrder = C.CL_LUMINANCE
+        ChannelOrderDepth		ChannelOrder = C.CL_DEPTH
+        ChannelOrderDepthStencil	ChannelOrder = C.CL_DEPTH_STENCIL
 )
 
 var channelOrderNameMap = map[ChannelOrder]string{
-	ChannelOrderR:         "R",
-	ChannelOrderA:         "A",
-	ChannelOrderRG:        "RG",
-	ChannelOrderRA:        "RA",
-	ChannelOrderRGB:       "RGB",
-	ChannelOrderRGBA:      "RGBA",
-	ChannelOrderBGRA:      "BGRA",
-	ChannelOrderARGB:      "ARGB",
-	ChannelOrderIntensity: "Intensity",
-	ChannelOrderLuminance: "Luminance",
+	ChannelOrderR:			"R",
+	ChannelOrderA:			"A",
+	ChannelOrderRG:			"RG",
+	ChannelOrderRA:			"RA",
+	ChannelOrderRGB:		"RGB",
+	ChannelOrderRGBA:		"RGBA",
+	ChannelOrderBGRA:		"BGRA",
+	ChannelOrderARGB:		"ARGB",
+	ChannelOrderIntensity:		"Intensity",
+	ChannelOrderLuminance:		"Luminance",
+	ChannelOrderDepth:		"Depth",
+	ChannelOrderDepthStencil:	"DepthStencil",
 }
 
 func (co ChannelOrder) String() string {
@@ -68,6 +73,7 @@ const (
 	ChannelDataTypeUnsignedInt32  ChannelDataType = C.CL_UNSIGNED_INT32
 	ChannelDataTypeHalfFloat      ChannelDataType = C.CL_HALF_FLOAT
 	ChannelDataTypeFloat          ChannelDataType = C.CL_FLOAT
+	ChannelDataTypeUNormInt24     ChannelDataType = C.CL_UNORM_INT24
 )
 
 var channelDataTypeNameMap = map[ChannelDataType]string{
@@ -86,6 +92,7 @@ var channelDataTypeNameMap = map[ChannelDataType]string{
 	ChannelDataTypeUnsignedInt32:  "UnsignedInt32",
 	ChannelDataTypeHalfFloat:      "HalfFloat",
 	ChannelDataTypeFloat:          "Float",
+	ChannelDataTypeUNormInt24:     "UNormInt24",
 }
 
 func (ct ChannelDataType) String() string {
@@ -100,6 +107,8 @@ type ImageInfoParam int
 
 const (
 	ImageInfoFormat 	ImageInfoParam = C.CL_IMAGE_FORMAT
+	ImageInfoBuffer 	ImageInfoParam = C.CL_IMAGE_BUFFER
+	ImageInfoArraySize 	ImageInfoParam = C.CL_IMAGE_ARRAY_SIZE
 	ImageInfoElementSize 	ImageInfoParam = C.CL_IMAGE_ELEMENT_SIZE
 	ImageInfoRowPitch 	ImageInfoParam = C.CL_IMAGE_ROW_PITCH
 	ImageInfoSlicePitch 	ImageInfoParam = C.CL_IMAGE_SLICE_PITCH
@@ -109,8 +118,12 @@ const (
 )
 
 const (
-        MemObjectTypeImage2D MemObjectType = C.CL_MEM_OBJECT_IMAGE2D
-        MemObjectTypeImage3D MemObjectType = C.CL_MEM_OBJECT_IMAGE3D
+        MemObjectTypeImage2D		MemObjectType = C.CL_MEM_OBJECT_IMAGE2D
+        MemObjectTypeImage3D		MemObjectType = C.CL_MEM_OBJECT_IMAGE3D
+        MemObjectTypeImage1D		MemObjectType = C.CL_MEM_OBJECT_IMAGE1D
+        MemObjectTypeImage1DArray	MemObjectType = C.CL_MEM_OBJECT_IMAGE1D_ARRAY
+        MemObjectTypeImage1DBuffer	MemObjectType = C.CL_MEM_OBJECT_IMAGE1D_BUFFER
+        MemObjectTypeImage2DArray 	MemObjectType = C.CL_MEM_OBJECT_IMAGE2D_ARRAY
 )
 
 //////////////// Abstract Types ////////////////
@@ -138,6 +151,24 @@ type ImageDescription struct {
         Buffer                          *MemObject
 }
 
+func (d ImageDescription) toCl() C.cl_image_desc {
+        var desc C.cl_image_desc
+        desc.image_type = C.cl_mem_object_type(d.Type)
+        desc.image_width = C.size_t(d.Width)
+        desc.image_height = C.size_t(d.Height)
+        desc.image_depth = C.size_t(d.Depth)
+        desc.image_array_size = C.size_t(d.ArraySize)
+        desc.image_row_pitch = C.size_t(d.RowPitch)
+        desc.image_slice_pitch = C.size_t(d.SlicePitch)
+        desc.num_mip_levels = C.cl_uint(d.NumMipLevels)
+        desc.num_samples = C.cl_uint(d.NumSamples)
+        desc.buffer = nil
+        if d.Buffer != nil {
+                desc.buffer = d.Buffer.clMem
+        }
+        return desc
+}
+
 //////////////// Basic Functions ////////////////
 func getImageInfoInt(memobj *MemObject, param_name ImageInfoParam) (int, error) {
 	var val C.size_t
@@ -149,14 +180,15 @@ func getImageInfoInt(memobj *MemObject, param_name ImageInfoParam) (int, error) 
 }
 
 //////////////// Abstract Functions ////////////////
-func (ctx *Context) CreateImage2D(flags MemFlag, imageFormat ImageFormat, imageDesc ImageDescription, data []byte) (*MemObject, error) {
+func (ctx *Context) CreateImage(flags MemFlag, imageFormat ImageFormat, imageDesc ImageDescription, data []byte) (*MemObject, error) {
 	format := imageFormat.toCl()
+	desc := imageDesc.toCl()
 	var dataPtr unsafe.Pointer
 	if data != nil {
 		dataPtr = unsafe.Pointer(&data[0])
 	}
 	var err C.cl_int
-	clBuffer := C.clCreateImage2D(ctx.clContext, C.cl_mem_flags(flags), &format, C.size_t(imageDesc.Width), C.size_t(imageDesc.Height), C.size_t(imageDesc.RowPitch), dataPtr, &err)
+	clBuffer := C.clCreateImage(ctx.clContext, C.cl_mem_flags(flags), &format, &desc, dataPtr, &err)
 	if err != C.CL_SUCCESS {
 		return nil, toError(err)
 	}
@@ -166,22 +198,55 @@ func (ctx *Context) CreateImage2D(flags MemFlag, imageFormat ImageFormat, imageD
 	return newMemObject(clBuffer, len(data)), nil
 }
 
-func (ctx *Context) CreateImage3D(flags MemFlag, imageFormat ImageFormat, imageDesc ImageDescription, data []byte) (*MemObject, error) {
-	format := imageFormat.toCl()
-	var dataPtr unsafe.Pointer
-	if data != nil {
-		dataPtr = unsafe.Pointer(&data[0])
+func (ctx *Context) CreateImageSimple(flags MemFlag, width, height int, channelOrder ChannelOrder, channelDataType ChannelDataType, data []byte) (*MemObject, error) {
+	format := ImageFormat{channelOrder, channelDataType}
+	desc := ImageDescription{
+		Type:   MemObjectTypeImage2D,
+		Width:  width,
+		Height: height,
 	}
-	var err C.cl_int
-	clBuffer := C.clCreateImage3D(ctx.clContext, C.cl_mem_flags(flags), &format, C.size_t(imageDesc.Width), C.size_t(imageDesc.Height), C.size_t(imageDesc.Depth),
-				      C.size_t(imageDesc.RowPitch), C.size_t(imageDesc.SlicePitch), dataPtr, &err)
-	if err != C.CL_SUCCESS {
-		return nil, toError(err)
+	return ctx.CreateImage(flags, format, desc, data)
+}
+
+func (ctx *Context) CreateImageFromImage(flags MemFlag, img image.Image) (*MemObject, error) {
+	switch m := img.(type) {
+	case *image.Gray:
+		format := ImageFormat{ChannelOrderIntensity, ChannelDataTypeUNormInt8}
+		desc := ImageDescription{
+			Type:     MemObjectTypeImage2D,
+			Width:    m.Bounds().Dx(),
+			Height:   m.Bounds().Dy(),
+			RowPitch: m.Stride,
+		}
+		return ctx.CreateImage(flags, format, desc, m.Pix)
+	case *image.RGBA:
+		format := ImageFormat{ChannelOrderRGBA, ChannelDataTypeUNormInt8}
+		desc := ImageDescription{
+			Type:     MemObjectTypeImage2D,
+			Width:    m.Bounds().Dx(),
+			Height:   m.Bounds().Dy(),
+			RowPitch: m.Stride,
+		}
+		return ctx.CreateImage(flags, format, desc, m.Pix)
 	}
-	if clBuffer == nil {
-		return nil, ErrUnknown
+
+	b := img.Bounds()
+	w := b.Dx()
+	h := b.Dy()
+	data := make([]byte, w*h*4)
+	dataOffset := 0
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			c := img.At(x+b.Min.X, y+b.Min.Y)
+			r, g, b, a := c.RGBA()
+			data[dataOffset] = uint8(r >> 8)
+			data[dataOffset+1] = uint8(g >> 8)
+			data[dataOffset+2] = uint8(b >> 8)
+			data[dataOffset+3] = uint8(a >> 8)
+			dataOffset += 4
+		}
 	}
-	return newMemObject(clBuffer, len(data)), nil
+	return ctx.CreateImageSimple(flags, w, h, ChannelOrderRGBA, ChannelDataTypeUNormInt8, data)
 }
 
 func (ctx *Context) GetSupportedImageFormats(flags MemFlag, imageType MemObjectType) ([]ImageFormat, error) {
@@ -237,6 +302,15 @@ func (q *CommandQueue) EnqueueWriteImage(image *MemObject, blocking bool, origin
 	return newEvent(event), err
 }
 
+// Enqueues a command to fill a 2D or 3D image object with a pattern stored at the memory location given by color.
+func (q *CommandQueue) EnqueueFillImage(image *MemObject, color unsafe.Pointer, origin, region [3]int, eventWaitList []*Event) (*Event, error) {
+        cOrigin := sizeT3(origin)
+        cRegion := sizeT3(region)
+        var event C.cl_event
+	err := toError(C.clEnqueueFillImage(q.clQueue, image.clMem, color, &cOrigin[0], &cRegion[0], C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event))
+        return newEvent(event), err
+}
+
 // Enqueues a command to copy from a 2D or 3D image object to device memory as image.
 func (q *CommandQueue) EnqueueCopyImage(dst, src *MemObject, dst_origin, src_origin, region [3]int, eventWaitList []*Event) (*Event, error) {
 	dOrigin := sizeT3(dst_origin)
@@ -272,6 +346,10 @@ func (image_desc *ImageDescription) GetFormat() (*ImageFormat, error) {
 		return nil, toError(err)
 	}
 	return &ImageFormat{ChannelOrder: (ChannelOrder)(tmpFormat.image_channel_order), ChannelDataType: (ChannelDataType)(tmpFormat.image_channel_data_type)}, toError(err)
+}
+
+func (image_desc *ImageDescription) GetArraySize() (int, error) {
+        return getImageInfoInt(image_desc.Buffer, ImageInfoArraySize)
 }
 
 func (image_desc *ImageDescription) GetElementSize() (int, error) {

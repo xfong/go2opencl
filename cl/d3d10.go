@@ -10,32 +10,32 @@ static cl_mem (*clCreateFromD3D10Buffer) (cl_context, cl_mem_flags, ID3D10Buffer
 static cl_mem (*clCreateFromD3D10Texture2D) (cl_context, cl_mem_flags, ID3D10Texture2D *, UINT, cl_int *);
 static cl_mem (*clCreateFromD3D10Texture3D) (cl_context, cl_mem_flags, ID3D10Texture3D *, UINT, cl_int *);
 static cl_int (*clEnqueueAcquireD3D10Objects) (cl_command_queue, cl_uint, const cl_mem *, cl_uint, const cl_event *, cl_event *);
-static cl_int (*clEnqueueReleaseD3D10Objects) (cl_command_queue, cl_uint, cl_mem *, cl_uint, const cl_event *, cl_event *);
+static cl_int (*clEnqueueReleaseD3D10Objects) (cl_command_queue, cl_uint, const cl_mem *, cl_uint, const cl_event *, cl_event *);
 
-static void SetupD3D10Sharing() {
+static void SetupD3D10Sharing(cl_platform_id platform) {
 	clGetDeviceIDsFromD3D10KHR_fn tmpPtr0 = NULL;
-	tmpPtr0 = (clGetDeviceIDsFromD3D10KHR_fn)clGetExtensionFunctionAddress("clGetDeviceIDsFromD3D10KHR");
+	tmpPtr0 = (clGetDeviceIDsFromD3D10KHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetDeviceIDsFromD3D10KHR");
 	clGetDeviceIDsFromD3D10 = tmpPtr0;
 
 	clCreateFromD3D10BufferKHR_fn tmpPtr1 = NULL;
-	tmpPtr1 = (clCreateFromD3D10BufferKHR_fn)clGetExtensionFunctionAddress("clCreateFromD3D10BufferKHR");
+	tmpPtr1 = (clCreateFromD3D10BufferKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D10BufferKHR");
 	clCreateFromD3D10Buffer = tmpPtr1;
 
 
 	clCreateFromD3D10Texture2DKHR_fn tmpPtr2 = NULL;
-	tmpPtr2 = (clCreateFromD3D10Texture2DKHR_fn)clGetExtensionFunctionAddress("clCreateFromD3D10Texture2DKHR");
+	tmpPtr2 = (clCreateFromD3D10Texture2DKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D10Texture2DKHR");
 	clCreateFromD3D10Texture2D = tmpPtr2;
 
 	clCreateFromD3D10Texture3DKHR_fn tmpPtr3 = NULL;
-	tmpPtr3 = (clCreateFromD3D10Texture3DKHR_fn)clGetExtensionFunctionAddress("clCreateFromD3D10Texture3DKHR");
+	tmpPtr3 = (clCreateFromD3D10Texture3DKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D10Texture3DKHR");
 	clCreateFromD3D10Texture3D = tmpPtr3;
 
 	clEnqueueAcquireD3D10ObjectsKHR_fn tmpPtr4 = NULL;
-	tmpPtr4 = (clEnqueueAcquireD3D10ObjectsKHR_fn)clGetExtensionFunctionAddress("clEnqueueAcquireD3D10ObjectsKHR");
+	tmpPtr4 = (clEnqueueAcquireD3D10ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireD3D10ObjectsKHR");
 	clEnqueueAcquireD3D10Objects = tmpPtr4;
 
 	clEnqueueReleaseD3D10ObjectsKHR_fn tmpPtr5 = NULL;
-	tmpPtr5 = (clEnqueueReleaseD3D10ObjectsKHR_fn)clGetExtensionFunctionAddress("clEnqueueReleaseD3D10ObjectsKHR");
+	tmpPtr5 = (clEnqueueReleaseD3D10ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D10ObjectsKHR");
 	clEnqueueReleaseD3D10Objects = tmpPtr5;
 }
 
@@ -104,8 +104,6 @@ const (
 
 //////////////// Basic Functions ////////////////
 func init() {
-	C.SetupD3D10Sharing()
-
 	errorMap[C.CL_INVALID_D3D10_DEVICE_KHR]			= ErrInvalidD3D10Device
 	errorMap[C.CL_INVALID_D3D10_RESOURCE_KHR]		= ErrInvalidD3D10Resource
 	errorMap[C.CL_D3D10_RESOURCE_ALREADY_ACQUIRED_KHR]	= ErrD3D10ResourceAlreadyAcquired
@@ -127,6 +125,10 @@ func D3D10StatusToCommandType(status C.cl_command_type) (bool, CommandType) {
 }
 
 //////////////// Abstract Functions ////////////////
+func (p *Platform) SetupD3D10Sharing() {
+        C.SetupD3D10Sharing(p.id)
+}
+
 func (p *Platform) GetDeviceIDsFromD3D10(D3D10DeviceSrc CLD3D10DeviceSourceKHR, D3D10Obj unsafe.Pointer, D3D10DeviceSet CLD3D10DeviceSetKHR, num_devices int) ([]*Device, error) {
 	var device_id_tmp []C.cl_device_id
 	defer C.free(device_id_tmp)

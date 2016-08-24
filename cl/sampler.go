@@ -12,6 +12,7 @@ type SamplerAddressingMode int
 
 const (
 	SamplerAddressRepeat		SamplerAddressingMode = C.CL_ADDRESS_REPEAT
+	SamplerAddressMirroredRepeat	SamplerAddressingMode = C.CL_ADDRESS_MIRRORED_REPEAT
 	SamplerAddressClampToEdge	SamplerAddressingMode = C.CL_ADDRESS_CLAMP_TO_EDGE
 	SamplerAddressClamp		SamplerAddressingMode = C.CL_ADDRESS_CLAMP
 	SamplerAddressNone		SamplerAddressingMode = C.CL_ADDRESS_NONE

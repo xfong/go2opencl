@@ -154,10 +154,22 @@ func (e *Event) GetCommandType() (CommandType, error) {
 				return gl_command_type, toError(err)
 			}
 		}
+		if dx9_sharing_ext {
+			check, dx9_command_type := getDX9CommandType(status)
+			if check {
+				return dx9_command_type, toError(err)
+			}
+		}
 		if d3d10_sharing_ext {
 			check, d3d10_command_type := getD3D10CommandType(status)
 			if check {
 				return d3d10_command_type, toError(err)
+			}
+		}
+		if d3d11_sharing_ext {
+			check, d3d11_command_type := getD3D11CommandType(status)
+			if check {
+				return d3d11_command_type, toError(err)
 			}
 		}
         	switch status {
@@ -227,25 +239,6 @@ func (e *Event) GetReferenceCount() (int, error) {
 	return 0, toError(C.CL_INVALID_EVENT)
 }
 
-// A synchronization point that enqueues a barrier operation.
-func (q *CommandQueue) EnqueueBarrier() error {
-        err := toError(C.clEnqueueBarrier(q.clQueue))
-        return err
-}
-
-// Enqueues a marker command which waits for either a list of events to complete, or all previously enqueued commands to complete.
-func (q *CommandQueue) EnqueueMarker() (*Event, error) {
-        var event C.cl_event
-        err := toError(C.clEnqueueMarker(q.clQueue, &event))
-        return newEvent(event), err
-}
-
-// Enqueues a command which waits for either a list of events to complete, or all previously enqueued commands to complete.
-func (q *CommandQueue) EnqueueWaitForEvents(events []*Event) error {
-        err := toError(C.clEnqueueWaitForEvents(q.clQueue, C.cl_uint(len(events)), eventListPtr(events)))
-        return err
-}
-
 func (ctx *Context) CreateUserEvent() (*Event, error) {
         var err C.cl_int
         clEvent := C.clCreateUserEvent(ctx.clContext, &err)
@@ -262,4 +255,19 @@ func (ev *Event) SetUserEventStatus(status CommandExecStatus) (error) {
 func (ev *Event) SetEventCallback(status CommandExecStatus, user_data unsafe.Pointer) (error) {
         return toError(C.CLSetEventCallback(ev.clEvent, (C.cl_int)(status), user_data))
 }
+
+// A synchronization point that enqueues a barrier operation.
+func (q *CommandQueue) EnqueueBarrierWithWaitList(eventWaitList []*Event) (*Event, error) {
+	var event C.cl_event
+	err := toError(C.clEnqueueBarrierWithWaitList(q.clQueue, C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event))
+	return newEvent(event), err
+}
+
+// Enqueues a marker command which waits for either a list of events to complete, or all previously enqueued commands to complete.
+func (q *CommandQueue) EnqueueMarkerWithWaitList(eventWaitList []*Event) (*Event, error) {
+	var event C.cl_event
+	err := toError(C.clEnqueueMarkerWithWaitList(q.clQueue, C.cl_uint(len(eventWaitList)), eventListPtr(eventWaitList), &event))
+	return newEvent(event), err
+}
+
 

@@ -116,6 +116,72 @@ func (k *Kernel) SetArg(index int, arg interface{}) error {
 	}
 }
 
+func (k *Kernel) ArgAddressQualifier(index int) (string, error) {
+        var val C.cl_kernel_arg_address_qualifier
+        var err C.cl_int
+        defer C.free(unsafe.Pointer(&err))
+        if err = C.clGetKernelArgInfo(k.clKernel, C.cl_uint(index), C.CL_KERNEL_ARG_ADDRESS_QUALIFIER, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+                return "", toError(err)
+        }
+        switch val {
+        default:
+                return "", toError(err)
+        case C.CL_KERNEL_ARG_ADDRESS_GLOBAL:
+                return "Global", nil
+        case C.CL_KERNEL_ARG_ADDRESS_LOCAL:
+                return "Local", nil
+        case C.CL_KERNEL_ARG_ADDRESS_CONSTANT:
+                return "Constant", nil
+        case C.CL_KERNEL_ARG_ADDRESS_PRIVATE:
+                return "Private", nil
+        }
+}
+
+func (k *Kernel) ArgAccessQualifier(index int) (string, error) {
+        var val C.cl_kernel_arg_access_qualifier
+	var err C.cl_int
+	defer C.free(unsafe.Pointer(&err))
+        if err = C.clGetKernelArgInfo(k.clKernel, C.cl_uint(index), C.CL_KERNEL_ARG_ACCESS_QUALIFIER, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil); err != C.CL_SUCCESS {
+                return "", toError(err)
+        }
+	switch val {
+	default:
+		return "", toError(err)
+	case C.CL_KERNEL_ARG_ACCESS_READ_ONLY:
+		return "ReadOnly", nil
+	case C.CL_KERNEL_ARG_ACCESS_READ_WRITE:
+		return "ReadWrite", nil
+	case C.CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
+		return "WriteOnly", nil
+	case C.CL_KERNEL_ARG_ACCESS_NONE:
+		return "None", nil
+	}
+}
+
+func (k *Kernel) ArgTypeQualifier(index int) (C.cl_kernel_arg_type_qualifier, error) {
+        var val C.cl_kernel_arg_type_qualifier
+        err := C.clGetKernelArgInfo(k.clKernel, C.cl_uint(index), C.CL_KERNEL_ARG_TYPE_QUALIFIER, C.size_t(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil)
+        return val, toError(err)
+}
+
+func (k *Kernel) ArgName(index int) (string, error) {
+        var strC [1024]byte
+        var strN C.size_t
+        if err := C.clGetKernelArgInfo(k.clKernel, C.cl_uint(index), C.CL_KERNEL_ARG_NAME, 1024, unsafe.Pointer(&strC[0]), &strN); err != C.CL_SUCCESS {
+                return "", toError(err)
+        }
+        return string(strC[:strN]), nil
+}
+
+func (k *Kernel) ArgTypeName(index int) (string, error) {
+        var strC [1024]byte
+        var strN C.size_t
+        if err := C.clGetKernelArgInfo(k.clKernel, C.cl_uint(index), C.CL_KERNEL_ARG_TYPE_NAME, 1024, unsafe.Pointer(&strC[0]), &strN); err != C.CL_SUCCESS {
+                return "", toError(err)
+        }
+        return string(strC[:strN]), nil
+}
+
 func (k *Kernel) SetArgBuffer(index int, buffer *MemObject) error {
 	return k.SetArgUnsafe(index, int(unsafe.Sizeof(buffer.clMem)), unsafe.Pointer(&buffer.clMem))
 }
@@ -153,6 +219,14 @@ func (k *Kernel) SetArgUnsafe(index, argSize int, arg unsafe.Pointer) error {
 	return toError(C.clSetKernelArg(k.clKernel, C.cl_uint(index), C.size_t(argSize), arg))
 }
 
+func (k *Kernel) GlobalWorkGroupSize(device *Device) ([3]int, error) {
+	var size [3]C.size_t
+	if err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_GLOBAL_WORK_SIZE, C.size_t(unsafe.Sizeof(size)), unsafe.Pointer(&size[0]), nil); err != C.CL_SUCCESS {
+		return [3]int{-1, -1, -1}, toError(err)
+	}
+	return [3]int{int(size[0]), int(size[1]), int(size[2])}, nil
+}
+
 func (k *Kernel) WorkGroupSize(device *Device) (int, error) {
 	var size C.size_t
 	err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_WORK_GROUP_SIZE, C.size_t(unsafe.Sizeof(size)), unsafe.Pointer(&size), nil)
@@ -168,10 +242,10 @@ func (k *Kernel) PreferredWorkGroupSizeMultiple(device *Device) (int, error) {
 func (k *Kernel) CompileWorkGroupSize(device *Device) ([3]int, error) {
 	var wgSize [3]C.size_t
 	defer C.free(unsafe.Pointer(&wgSize))
-        err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_COMPILE_WORK_GROUP_SIZE, C.size_t(unsafe.Sizeof(wgSize)), unsafe.Pointer(&wgSize), nil)
-	var outSize [3]int
-	outSize[0], outSize[1], outSize[2] = int(wgSize[0]), int(wgSize[1]), int(wgSize[2])
-        return outSize, toError(err)
+        if err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_COMPILE_WORK_GROUP_SIZE, C.size_t(unsafe.Sizeof(wgSize)), unsafe.Pointer(&wgSize), nil); err != C.CL_SUCCESS {
+		return [3]int{-1, -1, -1}, toError(err)
+	}
+        return [3]int{int(wgSize[0]), int(wgSize[1]), int(wgSize[2])}, nil
 }
 
 func (k *Kernel) WorkGroupLocalMemSize(device *Device) (int, error) {
@@ -201,6 +275,12 @@ func (k *Kernel) ReferenceCount() (int, error) {
 func (k *Kernel) FunctionName() (string, error) {
         var name C.char
 	err := C.clGetKernelInfo(k.clKernel, C.CL_KERNEL_FUNCTION_NAME, C.size_t(unsafe.Sizeof(name)), unsafe.Pointer(&name), nil)
+        return C.GoString(&name), toError(err)
+}
+
+func (k *Kernel) Attributes() (string, error) {
+        var name C.char
+	err := C.clGetKernelInfo(k.clKernel, C.CL_KERNEL_ATTRIBUTES, C.size_t(unsafe.Sizeof(name)), unsafe.Pointer(&name), nil)
         return C.GoString(&name), toError(err)
 }
 
@@ -297,3 +377,4 @@ func (p *Program) CreateKernelsInProgram() ([]*Kernel, error) {
 	}
 	return returnKerns, nil
 }
+
