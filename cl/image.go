@@ -108,6 +108,11 @@ const (
 	ImageInfoDepth 		ImageInfoParam = C.CL_IMAGE_DEPTH
 )
 
+const (
+        MemObjectTypeImage2D MemObjectType = C.CL_MEM_OBJECT_IMAGE2D
+        MemObjectTypeImage3D MemObjectType = C.CL_MEM_OBJECT_IMAGE3D
+)
+
 //////////////// Abstract Types ////////////////
 type ImageFormat struct {
 	ChannelOrder    ChannelOrder
@@ -132,11 +137,6 @@ type ImageDescription struct {
         NumMipLevels, NumSamples        int
         Buffer                          *MemObject
 }
-
-const(
-        MemObjectTypeImage2D MemObjectType = C.CL_MEM_OBJECT_IMAGE2D
-        MemObjectTypeImage3D MemObjectType = C.CL_MEM_OBJECT_IMAGE3D
-)
 
 //////////////// Basic Functions ////////////////
 func getImageInfoInt(memobj *MemObject, param_name ImageInfoParam) (int, error) {
@@ -302,6 +302,20 @@ func (image_desc *ImageDescription) GetContext() (*Context, error) {
 	if image_desc.Buffer != nil {
 		return image_desc.Buffer.GetContext()
 	}
+        return nil, toError(C.CL_INVALID_MEM_OBJECT)
+}
+
+func (image_desc *ImageDescription) GetMemOffset() (int, error) {
+        if image_desc.Buffer != nil {
+                return image_desc.Buffer.GetOffset()
+        }
+        return 0, toError(C.CL_INVALID_MEM_OBJECT)
+}
+
+func (image_desc *ImageDescription) GetAssociatedMemObject() (*MemObject, error) {
+        if image_desc.Buffer != nil {
+                return image_desc.Buffer.GetAssociatedMemObject()
+        }
         return nil, toError(C.CL_INVALID_MEM_OBJECT)
 }
 

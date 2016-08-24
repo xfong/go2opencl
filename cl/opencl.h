@@ -13,7 +13,7 @@
 #endif
 #endif
 
-#ifndef CL_VERSION_1_0
-	#error "This package requires OpenCL 1.0"
+#ifndef CL_VERSION_1_1
+	#error "This package requires OpenCL 1.1"
 #endif
 

@@ -227,6 +227,11 @@ func (d *Device) DriverVersion() string {
 	return str
 }
 
+func (d *Device) OpenCLCVersion() string {
+	str, _ := d.GetInfoString(C.CL_DEVICE_OPENCL_C_VERSION, true)
+	return str
+}
+
 // The default compute device address space size specified as an
 // unsigned integer value in bits. Currently supported values are 32 or 64 bits.
 func (d *Device) AddressBits() int {
@@ -396,6 +401,11 @@ func (d *Device) Available() bool {
 	return val
 }
 
+func (d *Device) HostUnifiedMemory() bool {
+	val, _ := d.getInfoBool(C.CL_DEVICE_HOST_UNIFIED_MEMORY, true)
+	return val
+}
+
 func (d *Device) CompilerAvailable() bool {
 	val, _ := d.getInfoBool(C.CL_DEVICE_COMPILER_AVAILABLE, true)
 	return val
@@ -501,6 +511,62 @@ func (d *Device) MaxWorkItemSizes() []int {
 	return intSizes
 }
 
+// Native vector width size for built-in char type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector.
+func (d *Device) NativeVectorWidthChar() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR, true)
+        return int(val)
+}
+
+// Native vector width size for built-in short type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector.
+func (d *Device) NativeVectorWidthShort() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT, true)
+        return int(val)
+}
+
+// Native vector width size for built-in int type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector.
+func (d *Device) NativeVectorWidthInt() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_INT, true)
+        return int(val)
+}
+
+// Native vector width size for built-in long type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector.
+func (d *Device) NativeVectorWidthLong() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG, true)
+        return int(val)
+}
+
+// Native vector width size for built-in float type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector.
+func (d *Device) NativeVectorWidthFloat() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT, true)
+        return int(val)
+}
+
+// Native vector width size for built-in double type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector. Must return 0 when cl_khr_fp64 is unsupported.
+func (d *Device) NativeVectorWidthDouble() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE, true)
+        return int(val)
+}
+
+// Native vector width size for built-in half type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector. Must return 0 when cl_khr_fp16 is unsupported.
+func (d *Device) NativeVectorWidthHalf() int {
+        val, _ := d.getInfoUint(C.CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF, true)
+        return int(val)
+}
+
 // Preferred native vector width size for built-in char type that can be put into vectors.
 // The vector width is defined as the number of scalar elements that can be stored in
 // the vector.
@@ -546,6 +612,14 @@ func (d *Device) PreferredVectorWidthFloat() int {
 // the vector. Must return 0 when cl_khr_fp64 is unsupported.
 func (d *Device) PreferredVectorWidthDouble() int {
 	val, _ := d.getInfoUint(C.CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, true)
+	return int(val)
+}
+
+// Preferred native vector width size for built-in double type that can be put into vectors.
+// The vector width is defined as the number of scalar elements that can be stored in
+// the vector. Must return 0 when cl_khr_fp16 is unsupported.
+func (d *Device) PreferredVectorWidthHalf() int {
+	val, _ := d.getInfoUint(C.CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF, true)
 	return int(val)
 }
 

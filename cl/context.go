@@ -40,6 +40,7 @@ type ContextInfo	int
 const (
 	ContextReferenceCount	ContextInfo = C.CL_CONTEXT_REFERENCE_COUNT
 	ContextDevices		ContextInfo = C.CL_CONTEXT_DEVICES
+	ContextNumDevices	ContextInfo = C.CL_CONTEXT_NUM_DEVICES
 	ContextProperties	ContextInfo = C.CL_CONTEXT_PROPERTIES
 )
 
@@ -186,6 +187,15 @@ func (ctx *Context) GetDevices() ([]*Device, error) {
         	return nil, toError(err)
         }
         return nil, toError(C.CL_INVALID_CONTEXT)
+}
+
+func (ctx *Context) GetNumberOfDevices() (int, error) {
+        if ctx.clContext != nil {
+		var outCount C.cl_uint
+		err := C.clGetContextInfo(ctx.clContext, C.cl_context_info(ContextNumDevices), C.size_t(unsafe.Sizeof(outCount)), unsafe.Pointer(&outCount), nil)
+		return int(outCount), toError(err)
+	}
+	return 0, toError(C.CL_INVALID_CONTEXT)
 }
 
 func (ctx *Context) GetProperties() ([]CLContextProperties, error) {

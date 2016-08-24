@@ -121,9 +121,3 @@ func (q *CommandQueue) GetQueueProperties() (CommandQueueProperty, error) {
         return 0, toError(C.CL_INVALID_COMMAND_QUEUE)
 }
 
-func (q *CommandQueue) SetQueueProperty(property CommandQueueProperty, b bool) (CommandQueueProperty, error) {
-	var oldProperties	C.cl_command_queue_properties
-	err := C.clSetCommandQueueProperty(q.clQueue, C.cl_command_queue_properties(property), clBool(b), &oldProperties)
-	return CommandQueueProperty(oldProperties), toError(err)
-}
-

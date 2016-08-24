@@ -98,7 +98,7 @@ func (p *Program) Retain() {
 
 func (p *Program) BuildProgram(devices []*Device, options string) error {
 	var optBuffer bytes.Buffer
-	optBuffer.WriteString("")
+	optBuffer.WriteString("-cl-std=CL1.1 ")
 	var cOptions *C.char
 	if options != "" {
 		optBuffer.WriteString(options)

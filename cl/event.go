@@ -2,6 +2,16 @@ package cl
 
 /*
 #include "./opencl.h"
+
+extern void go_set_event_callback(cl_event event, cl_int execution_status, void *user_args);
+static void CL_CALLBACK c_set_event_callback(cl_event event, cl_int execution_status, void *user_args) {
+        go_set_event_callback((cl_event) event, (cl_int) execution_status, (void *)user_args);
+}
+static cl_int CLSetEventCallback(      cl_event		event,
+				       cl_int		callback_type,
+                                       void *		user_args) {
+	return clSetEventCallback(event, callback_type, c_set_event_callback, user_args);
+}
 */
 import "C"
 
@@ -39,7 +49,18 @@ type Event struct {
 	clEvent C.cl_event
 }
 
+////////////////// Supporting Types ////////////////
+type CL_go_set_event_callback func(event C.cl_event, callback_status C.cl_int, user_data unsafe.Pointer)
+var go_set_event_callback_func map[unsafe.Pointer]CL_go_set_event_callback
+
 //////////////// Basic Functions ///////////////
+//export go_set_event_callback
+func go_set_event_callback(event C.cl_event, callback_status C.cl_int, user_data unsafe.Pointer) {
+        var c_user_data []unsafe.Pointer
+        c_user_data = *(*[]unsafe.Pointer)(user_data)
+        go_set_event_callback_func[c_user_data[1]](event, callback_status, c_user_data[0])
+}
+
 func releaseEvent(ev *Event) {
         if ev.clEvent != nil {
                 C.clReleaseEvent(ev.clEvent)
@@ -109,6 +130,15 @@ func (e *Event) GetCommandQueue() (*CommandQueue, error) {
 		var outQueue C.cl_command_queue
 		err := C.clGetEventInfo(e.clEvent, C.CL_EVENT_COMMAND_QUEUE, C.size_t(unsafe.Sizeof(outQueue)), unsafe.Pointer(&outQueue), nil)
 		return &CommandQueue{clQueue: outQueue, device: nil}, toError(err)
+	}
+	return nil, toError(C.CL_INVALID_EVENT)
+}
+
+func (e *Event) GetContext() (*Context, error) {
+	if e.clEvent != nil {
+		var outContext C.cl_context
+		err := C.clGetEventInfo(e.clEvent, C.CL_EVENT_CONTEXT, C.size_t(unsafe.Sizeof(outContext)), unsafe.Pointer(&outContext), nil)
+		return &Context{clContext: outContext, devices: nil}, toError(err)
 	}
 	return nil, toError(C.CL_INVALID_EVENT)
 }
@@ -214,5 +244,22 @@ func (q *CommandQueue) EnqueueMarker() (*Event, error) {
 func (q *CommandQueue) EnqueueWaitForEvents(events []*Event) error {
         err := toError(C.clEnqueueWaitForEvents(q.clQueue, C.cl_uint(len(events)), eventListPtr(events)))
         return err
+}
+
+func (ctx *Context) CreateUserEvent() (*Event, error) {
+        var err C.cl_int
+        clEvent := C.clCreateUserEvent(ctx.clContext, &err)
+        if err != C.CL_SUCCESS {
+                return nil, toError(err)
+        }
+        return newEvent(clEvent), nil
+}
+
+func (ev *Event) SetUserEventStatus(status CommandExecStatus) (error) {
+        return toError(C.clSetUserEventStatus(ev.clEvent, (C.cl_int)(status)))
+}
+
+func (ev *Event) SetEventCallback(status CommandExecStatus, user_data unsafe.Pointer) (error) {
+        return toError(C.CLSetEventCallback(ev.clEvent, (C.cl_int)(status), user_data))
 }
 

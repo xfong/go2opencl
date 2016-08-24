@@ -202,3 +202,28 @@ func (q *CommandQueue) EnqueueReleaseD3D10Objects(memObj []*MemObject, eventWait
 	return newEvent(event), toError(err)
 }
 
+func (b *MemObject) GetD3D10Resource() (*C.ID3D10Resource, error) {
+	if b.clMem != nil {
+		var val C.ID3D10Resource
+		err := C.clGetMemObjectInfo(b.clMem, C.CL_MEM_D3D10_RESOURCE_KHR, (C.size_t)(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil)
+		if toError(err) != nil {
+			return nil, toError(err)
+		}
+		return &val, nil
+	}
+	return nil, toError(C.CL_INVALID_MEM_OBJECT)
+}
+
+func (image_desc *ImageDescription) GetD3D10Subresource() (*C.ID3D10Resource, error) {
+        if image_desc.Buffer != nil {
+		var val C.ID3D10Resource
+		err := C.clGetImageInfo(image_desc.Buffer.clMem, C.CL_IMAGE_D3D10_SUBRESOURCE_KHR, (C.size_t)(unsafe.Sizeof(val)), unsafe.Pointer(&val), nil)
+		if toError(err) != nil {
+			return nil, toError(err)
+		}
+		return &val, nil
+        }
+        return nil, toError(C.CL_INVALID_MEM_OBJECT)
+}
+
+

@@ -7,16 +7,28 @@ package cl
 #include <GL/glext.h>
 #include "./opencl.h"
 
-static cl_int 	(*clGetGLContextInfo) (const cl_context_properties *, cl_gl_context_info, size_t, void *, size_t *);
+typedef CL_API_ENTRY cl_event (CL_API_CALL *clCreateEventFromGLsyncKHR_fn)(
+    cl_context context,
+    cl_GLsync  gl_sync,
+    cl_int *   err);
+static cl_int		(*clGetGLContextInfo) (const cl_context_properties *, cl_gl_context_info, size_t, void *, size_t *);
+static cl_event	(*clCreateEventFromGLsync) (cl_context, cl_GLsync, cl_int *);
 
 static void SetupGLSharing() {
-	clGetGLContextInfoKHR_fn tmpPtr = NULL;
-	tmpPtr = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
-	clGetGLContextInfo = tmpPtr;
+	clGetGLContextInfoKHR_fn tmpPtr0 = NULL;
+	tmpPtr0 = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
+	clGetGLContextInfo = tmpPtr0;
+	clCreateEventFromGLsyncKHR_fn tmpPtr1 = NULL;
+	tmpPtr1 = (clCreateEventFromGLsyncKHR_fn)clGetExtensionFunctionAddress("clCreateEventFromGLsyncKHR");
+	clCreateEventFromGLsync = tmpPtr1;
 }
 
 static cl_int CLGetGLContextInfo(const cl_context_properties *properties, cl_gl_context_info gl_context_info, size_t param_value_size, void *param_value, size_t *param_value_size_ret) {
 	return clGetGLContextInfo(properties, gl_context_info, param_value_size, param_value, param_value_size_ret);
+}
+
+static cl_event CLCreateEventFromGLsync(cl_context context, cl_GLsync glsync, cl_int * errCode) {
+	return clCreateEventFromGLsync(context, glsync, errCode);
 }
 */
 import "C"
@@ -31,6 +43,7 @@ import (
 type GLUint	C.cl_GLuint
 type GLInt	C.cl_GLint
 type GLEnum	C.cl_GLenum
+type GLSync	C.cl_GLsync
 
 var (
         ErrInvalidGlObject                    = errors.New("cl: Invalid Gl Object")
@@ -244,6 +257,13 @@ func (ctx *Context) CreateFromGlRenderBuffer(flag MemFlag, GlRenderBufferObject 
         }
         GlBufferObj.size = bufSize
         return GlBufferObj, nil
+}
+
+func (ctx *Context) CreateEventFromGLsync(gl_sync GLSync) (*Event, error) {
+	var errCode C.cl_int
+	defer C.free(errCode)
+	event := C.CLCreateEventFromGLsync(ctx.clContext, (C.cl_GLsync)(gl_sync), &errCode)
+	return newEvent(event), toError(errCode)
 }
 
 func (mb *MemObject) GetGlObjectInfo() (GLObjectTypes, *GLUint) {

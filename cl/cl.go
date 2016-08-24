@@ -220,6 +220,12 @@ func sizeT3(i3 [3]int) [3]C.size_t {
 
 type CLUint	C.cl_uint
 
+type Dim3 struct {
+	X	int
+	Y	int
+	Z	int
+}
+
 var gl_sharing_ext	bool
 var d3d10_sharing_ext	bool
 

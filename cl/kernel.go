@@ -159,6 +159,12 @@ func (k *Kernel) WorkGroupSize(device *Device) (int, error) {
 	return int(size), toError(err)
 }
 
+func (k *Kernel) PreferredWorkGroupSizeMultiple(device *Device) (int, error) {
+	var size C.size_t
+	err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, C.size_t(unsafe.Sizeof(size)), unsafe.Pointer(&size), nil)
+	return int(size), toError(err)
+}
+
 func (k *Kernel) CompileWorkGroupSize(device *Device) ([3]int, error) {
 	var wgSize [3]C.size_t
 	defer C.free(unsafe.Pointer(&wgSize))
@@ -171,6 +177,12 @@ func (k *Kernel) CompileWorkGroupSize(device *Device) ([3]int, error) {
 func (k *Kernel) WorkGroupLocalMemSize(device *Device) (int, error) {
         var size C.size_t
         err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_LOCAL_MEM_SIZE, C.size_t(unsafe.Sizeof(size)), unsafe.Pointer(&size), nil)
+        return int(size), toError(err)
+}
+
+func (k *Kernel) WorkGroupPrivateMemSize(device *Device) (int, error) {
+        var size C.size_t
+        err := C.clGetKernelWorkGroupInfo(k.clKernel, device.nullableId(), C.CL_KERNEL_PRIVATE_MEM_SIZE, C.size_t(unsafe.Sizeof(size)), unsafe.Pointer(&size), nil)
         return int(size), toError(err)
 }
 
